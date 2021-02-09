@@ -1,0 +1,75 @@
+\section{GAN的隐空间}
+\label{sec:feature}
+在介绍GAN逆向方法之前，我们首先回顾隐空间有趣的特征,比如, StyleGAN~\cite{karras2019style}的$\mathcal{W}$ 以及 $\mathcal{Z}$ 空间.
+我们将会讨论GAN模型在可解释性、解耦性和可逆性方面可以学到什么.
+
+
+\subsection{$\mathcal{Z}$ 空间和$\mathcal{W}$空间}
+\label{sec:space}
+
+GAN体系结构中的生成模型学习将从简单分布(例如，正态或均匀分布)中采样的值映射到生成的图像.
+从分布中\emph{直接}采样的这些值形成了通常被称为隐空间$\mathcal{Z}$的结构,这些值是隐向量或隐表示，由$\z \in \mathcal{Z}$表示.
+GAN的大多数隐空间可以用$\mathcal{Z}$空间来描述, 包括 DCGAN~\cite{radford2016dcgan}, PGGAN~\cite{karras2017progressive} 以及 BigGAN~\cite{brock2018large}.
+和部分~\ref{sec:gan models}讨论的一样,最近的工作~\cite{karras2019style} 通过一个由$8$层的多层感知器(MLP)实现的非线性映射网络$f$，进一步将原生的$\z$转换为被映射的风格向量$\w$，形成另一个称为$\ mathcal{w}$空间的中间隐空间。. 
+比如StyleGAN~\cite{karras2019style}的 $\mathcal{W}$空间, 以及StyleGAN2~\cite{karras2020analyzing}的$\mathcal{W}^{+}$ 空间 .
+
+
+由于映射网络和仿射变换, StyleGAN 的 $\mathcal{W}$空间相比 $\mathcal{Z}$ 空间包含更多的解耦特征. 
+$\mathcal{W}$ 空间减轻了耦合问题~\cite{karras2019style} 以便图像可以被更加方便的生成. 
+其他研究也分析了$\mathcal{W}$和$\mathcal{Z}$空间的可分性和语义.
+比如, Shen~\etal~\cite{shen2020interpreting} 说明使用$\mathcal{W}$空间的模型在可分性和表示方面比基于$\mathcal{Z}$空间的模型表现更好。
+StyleGAN方法的生成器$G$倾向于根据$\mathcal{W}$空间学习语义信息，并且比使用$\mathcal{Z}$空间的生成器性能更好.
+在语义方面，他们根据不同属性的潜在分离边界来评估分类的准确性.
+使用$\mathcal{W}$空格的StyleGAN比使用$\mathcal{Z}$空间的PGGAN获得更高的精度。
+$\mathcal{Z}$空间服从正态分布的约束限制了其语义属性的代表能力，因为假设可能不成立. 
+为了解决基于样式生成器的内在复杂性引起的空间耦合问题s~\cite{karras2019style} 以及AdaIN正则化的空间不变性~\cite{huang2017adain}, 最新方法~\cite{liu2020style,wu2020stylespace} 进一步提出了$\mathcal{S}$ 空间来从语义层面实现空间维度上的空间解耦.
+通过直接介入分割代码 $s \in \mathcal{S}$, 两个方法~\cite{liu2020style,wu2020stylespace} 都可以实现对局部变换的细粒度控制.
+
+\subsection{可解释性}
+基于网络修改、特征可视化和向量算法三组方法，已经开发出许多方法来解释隐藏的特征向量或深度模型中的单个神经元.
+第一组方法侧重于修改网络架构或训练损失，以分析模型如何执行. 
+Tao~\etal~\cite{Tao18attngan} 和 Li~\etal~\cite{li2019control,li2020manigan} 利用注意机制学习图像-文本匹配，通过将细粒度词级信息与中间特征映射关联，增强了在自然语言描述指导下的详细属性修改.
+Xia~\etal~\cite{xia2020gaze} 引入一种多分支控制器，分别编辑头部姿态、凝视方向等辅助面部属性，实现凝视重定向和插值.
+
+现有的方法主要集中在第二组方法，使用特征可视化来解释模型性能. 
+Nguyen~\etal~\cite{nguyen2016synthesizing}对训练后从隐藏层重建图像的生成器网络的输入代码进行优化. 
+近期, Daras~\etal~\cite{daras2020your} 为生成模型引入二维局部注意机制，并表明新引入的注意头确实通过可视化注意力特征图捕捉到真实图像的有趣方面.
+第三组方法利用向量算术性质. 
+Radford~\etal~\cite{radford2016dcgan} 展示了训练过的GAN丰富的线性结构，表明在隐空间中的代数操作可以导致在图像空间中进行有语义意义的操作. 
+人们已经开发了许多方法，通过改变隐向量来合成不同的结果. 
+后来的研究~\cite{bau2019inverting,shen2020interpreting,zhu2020indomain} 进一步证明了GAN的隐空间编码了丰富的层次语义信息.
+这种矢量算术性质通常是通过将隐训练向特定方向$\z^{\prime}=\z+\alpha \n$移动来实现的, 其中 $\n \in \R^{d}$ 表示与特定属性对应的方向，$\alpha$是步长.
+
+\subsection{解耦性}
+\label{sec:disentanglability}
+
+由于没有精确的定义，我们把可解耦性定义为隐向量$\z$可以被分割成不同的独立的表示部分$\mathbf{z_k}$的性质 . 
+另外, \textit{多样性} 意味着每个因子$\mathbf{z_k}$ 代表一个特定的可解释的概念, 并且 \textit{独立性} 表示可以独立地分析和修改不同的因子$\mathbf{z_k}$.
+这意味着对它们的联合密度进行因式分解 $p(\mathbf{\tilde{z}})=\prod_{k=0}^{K} p(\mathbf{{z}_{k}})$.
+不同类别的特征很好地分离出来后,对应的潜在特征可以通过t-SNE方法~\cite{maaten2008visualizing}被可视化. 
+解耦表示学习提供了一种可利用的结构，使我们能够仅改变底层状态的一些属性，例如面部图像的头发颜色，而保留所有其他属性不变。许多最近的解耦方法都是为了在训练中学习一种具有明确约束的可解释和可迁移的表示. 
+比如, Liu~\etal~\cite{liu2018unified} 提出一个统一的模型，学习用于跨多个领域描述和操作数据的解耦表示, 
+Lu~\etal~\cite{lu2019unsupervised} 从模糊图像中解耦地提取内容和模糊特征，进行图像复原. 
+
+一些无条件的图像生成模型~\cite{karras2019style,karras2020analyzing} 也表现出良好的解耦性质. 
+这些方法引入了一个非线性映射网络到生成器，而不是学习带有显式约束的解耦隐空间: $f:\mathcal{Z} \to \mathcal{W}$. 
+比如, StyleGAN的中间隐空间 $\mathcal{W}$ ~\cite{karras2019style} 是由一个学习的分段连续映射推理而来的。在一个无监督设置中(比如,变化的因素事先不知道)，它产生较少的耦合表示.
+在随后的部分中，我们将展示这个很好地解耦的隐空间提供了可行的逆向并获得更好的结果.
+
+\subsection{可逆性}
+\label{sec:invertibility}
+如部分~\ref{sec:space}所述, Radford~\etal~\cite{radford2016dcgan} 给出了隐表示$\z$的向量算术性质 .
+Creswell~\etal~\cite{creswell2018inverting} 提出了逆向的概念及其逆向算法. 
+Esser~\etal~\cite{esser2020invertible} 表明从简单分布(例如，高斯分布)中采样，有利于训练用于图像生成的生成模型。由于高斯密度的凸性，表示之间的线性操作是有意义的，线性插值可以沿着GAN的潜在空间遍历. 
+ 
+尽管上述方法在经验上取得了良好的效果，但在理论理解模型可逆性方面却收效甚微. 
+最近的方法旨在从不同的理论角度解决这一问题，例如压缩感知~\cite{bora2017sensing, gilbert2017invert, ma2018invertibility} 和稀疏表示~\cite{aberdam2020invert}.
+例如, Hand~\etal~\cite{hand2020global} 建立权重服从高斯分布的全连通生成网络，只要给出其最后一层的压缩线性观测值，就能被逆向.
+Gilbert~\etal~\cite{gilbert2017invert} 研究一个具有特殊激活函数的$1$层网络 (本质上是线性的concatenated ReLU~\cite{shang2016understanding}) 并且对隐向量进行了强$k$-稀疏性假设.
+Ma~\etal~\cite{ma2018invertibility} 证明了由两层转置卷积和 ReLU~\cite{nair2010rectified} 激活函数组成的扩展网络是可逆的.
+Aberdam~\etal~\cite{aberdam2020invert} 为一般的非统计权重矩阵提供可逆性和唯一性保证. 
+In~\cite{aberdam2020invert}, 从稀疏表示理论推导出理论条件. 
+它通过确保在~\eqref{eqn:def}中定义的逆向问题的解的唯一性，提供了深层生成模型的可逆性. 
+一个推论是，层之间被一个因子扩展的非零元素的数量至少$2$，以确保逆向问题的唯一全局最小值，这有效地预测生成过程是否可逆.
+
+\tabfeature

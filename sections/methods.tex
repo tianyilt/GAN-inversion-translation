@@ -1,0 +1,335 @@
+\section{GAN Inversion Methods}
+\label{sec:model}
+
+
+
+\subsection{逆向方法}
+\label{sec:techniques}
+主要有三种主要的GAN逆向技术来将图像投射到隐空间:基于学习的、基于优化的和混合的, 如图~\ref{fig:inversion_types}.
+学习到的逆表示还具有其他特征，例如，可解释方向、语义感知、逐层、非干预的、感兴趣区域和分布外. 
+表~\ref{tab:taxonomy} 列出了现有的最先进的GAN逆向方法的特点.
+
+\figtype
+
+\subsubsection{基于学习的GAN逆向}
+\label{sec:learning-based}
+基于学习的 GAN 逆向~\cite{perarnau2016invertible,zhu2016generative,bau2019inverting} 通常涉及训练一个编码网络$E(x; \theta_E)$映射图像$x$到隐向量$\z$:
+
+\begin{equation}
+\theta_E^* = \underset{\theta_E}{\arg\min} \sum_{n} \mathcal{L} (G(E(x_n; \theta_E)), \,x_n),
+\label{eqn:rec_train}
+\end{equation}
+其中 $x_n$ 表示数据集中第$n$个图像.
+预测模型$E$的架构通常等同于对抗网络的鉴别器$D$的架构，仅在最后一层有所变化.
+~\eqref{eqn:rec_train}的目标是让人联想到一个自动编码器管道，包含一个编码器$E$和一个解码器$G$。在整个训练过程中，解码器$G$是固定的.
+尽管~\eqref{eqn:def}中优化问题和~\eqref{eqn:rec_train}学习目标医院, 基于学习的方法通常比直接优化获得更好的性能，并且不会陷入局部最优~\cite{zhu2016generative,aberdam2020invert}.
+
+比如, Perarnau~\etal~\cite{perarnau2016invertible} 提出了可逆性条件GAN(ICGAN)方法，将图像$x$用隐向量形式$\z$和属性向量$y$表示，通过改变$y$可以生成修改后的图像$x^{\prime}$。这种方法包括用训练过的CGAN训练一个编码器$E$. 
+与 Zhu~\etal~\cite{zhu2016generative}的方法不同, 该编码器$E$由两个子编码器组成:$E_{z}$，将图像编码为$\z$; $E_{y}$，将图像编码为$y$. 
+为了训练 $E_{z}$, 该方法利用生成器创建生成图像$x^{\prime}$及其潜在向量$\z$的数据集，使$\z$与$E_{z}(G(\z, y^{\prime}))$之间的平方重构损失$\mathcal{L}_{ez}$最小化，并通过直接训练$\|y-E_{y}(x)\|_{2}^{2}$改进$E_{y}$。这里，$E_{y}$最初是通过使用生成的图像$x^{\prime}$和它们的条件信息$y^{\prime}$来训练的.
+Guan~\etal~\cite{guan2020faster} 提出了嵌入网络，该网络由两个编码器组成，一个是标识编码器$E_{id}$，用于从输入图像$x$中提取标识;另一个是属性编码器$E_{attr}$，用于从$x$中提取属性. 
+给定一个输入图像$x$，其分辨率为$256 \times 256$，嵌入网络生成其潜代码$\mathbf{w_e}$，并将其设置为迭代器的初始化。迭代器$\mathbf{w_o}$的输出轮流监督嵌入网络的训练，使用MSE损失、LPIPS 损失和隐向量损失.
+Tewari~\etal~\cite{tewari2020stylerig} 在预先训练的StyleGAN $\mathcal{S}$的表面语义参数上开发一个可解释的模型.
+给定一个对应于图像$I$的潜码$\w \in \R^{l}$，语义控制参数的向量$\p \in \R^f$，该方法学习一个函数$\mathcal{R}$，输出一个修改后的隐向量${\w}^{\prime} = \mathcal{R}(\w, \p)$。修改后的隐向量$\w^{\prime}$被设计成一个符合控制参数$\p$的人脸图像$I^{\prime} = \mathcal{S}({\w}^{\prime})$.
+编码器$\mathcal{R}$针对不同的控制模式，如姿态、表情和光照分别进行训练，该训练基于线性双层MLP实现，并基于双向循环一致性损失和可微的人脸重构网络进行自我监督训练。.
+
+为了更好地重用StyleGAN模型学习到的分层表示，Xu~\etal~\cite{xu2020ghfeat} 建议通过将预先训练好的StyleGAN生成器作为学习损失来训练分层编码器(类似于使用学习过的VGG~\cite{simonyan2014very}进行感知损失)。然后将学习到的解绑定多层次视觉特征 $\{\y^{(\ell)}\}^L_{\ell=1}$输入到固定的StyleGAN生成器的逐层自适应实例规范化(AdaIN)~\cite{huang2017adain} 中，通过替换原始的风格编码获得所需的图像:
+\begin{equation}
+\mathtt{AdaIN}({x}_i^{(\ell)}, \y^{(\ell)}) = \y_{s,i}^{(\ell)}\ \frac{{x}_i^{(\ell)} - \mu({x}_i^{(\ell)})}{\sigma({x}_i^{(\ell)})} + \y_{b,i}^{(\ell)},
+\label{eq:adain}  
+\end{equation}
+其中$L$表示卷积层的数量,${x}=G(z)$, ${x}_i^{(\ell)}$表示从第$\ell$层映射而来的第$i$个通道的归一化特征映射,$\mu(\cdot)$ 和$\sigma(\cdot)$分别表示均值和方差分别,$\y_s^{(\ell)}$ 和 $\y_b^{(\ell)}$分别对应于AdaIN的尺度和重量参数.
+
+虽然有些方法\cite{donahue2016adversarial,dumoulin2016adversarially}引用使用额外的编码网络学习的GAN的逆映射,我们不将他们归类到GAN逆向,因为他们的目标是\emph{共同训练} 编码器与生成器以及鉴别器,而不是确定GAN训练模型的隐空间.
+
+\subsubsection{基于优化的GAN逆向}
+\label{sec:optimization-based}
+
+现有的基于优化的GAN逆向方法通常通过优化隐向量来重建目标图像
+\begin{equation}
+\z^* = \underset{\z}{\arg\min}\, \ell(x, G(\z; \theta)),
+\label{eqn:opt}
+\end{equation}
+其中$x$是目标图像，$G$是由$\theta$参数化的GAN生成器。基于优化的GAN逆向通常基于梯度下降~\cite{creswell2018inverting,lipton2017precise,ma2018invertibility,creswell2018inverting,abdal2019image2stylegan,abdal2020image2stylegan2,lipton2017precise}或者其他迭代算法~\cite{voynov2020latent, ramesh2018spectral}来优化隐向量 .
+例如, Ramesh~\etal~\cite{ramesh2018spectral} 和 Voynov~\etal~\cite{voynov2020latent} 使用雅可比分解来分析预训练的GAN模型的隐空间. 
+具体来说，生成器的雅可比矩阵的左特征向量可以用来表示最解耦的方向. 
+在这些方法中，由一个隐向量$z_0$和一个从对应的第$k$个左特征向量的方向可以构造一条可解释的曲线. 
+Voynov~\etal~\cite{voynov2020latent} 表明一旦隐向量沿着曲线移动，生成的图像看起来会平滑地变换. 
+然而，虽然构造的曲线经常捕捉可解释的变换，但效果通常是耦合的(例如，照明和几何变换同时出现). 
+这种方法还需要一个昂贵的(在内存和运行时)迭代过程来计算曲线构造的每一步雅可比矩阵，并必须在每个隐向量独立应用. 
+尽管 Ramesh~\etal~\cite{ramesh2018spectral} 的方法限制了最大的被发现的方向数等于隐空间的维数,我们注意到 Voynov~\etal~\cite{voynov2020latent} 的方法可以应用于更大数量的方向
+ 
+为了解决局部极小值问题，人们提出了许多优化方法. 总体而言，有两种类型的优化器: 基于梯度的方法 (ADAM~\cite{kingma2014adam}, L-BFGS~\cite{liu1989limited}, Hamiltonian Monte Carlo (HMC)~\cite{duane1987hybrid}) 和无梯度的优化算法 (Covariance Matrix Adaptation (CMA)~\cite{hansen2001cma}).
+例如, ADAM 优化器在Image2StyleGAN~\cite{abdal2019image2stylegan}中应用,Zhu~\etal~\cite{zhu2016generative}使用了 L-BFGS 方法.
+Huh~\etal~\cite{huh2020transforming} 在Nevergrad库~\cite{nevergrad}中尝试各种无梯度优化方法. 使用默认的优化超参数. 他们发现，当将具有挑战性的数据集(例如LSUN中的汽车)中的图像逆向到StyleGAN2~\cite{karras2020analyzing}的隐空间时，CMA及其变量BasinCMA在优化潜在向量方面表现得最好.
+
+基于优化的GAN逆向的另一个重要问题是初始化. 
+因为~\eqref{eqn:def} 是高度非凸的, 重建质量很大程度上依赖于$\z$的良好初始化 (有时是StyleGAN~\cite{karras2019style}中的 $\w$).
+实验表明，使用不同的初始化方法会导致产生的图像有显著的感知差异~\cite{radford2016dcgan,brock2018large,karras2017progressive,karras2019style}. 
+一个直观的解决方案是从几个随机初始化开始，以最小的成本获得最佳结果. 
+Image2StyleGAN~\cite{abdal2019image2stylegan} 受到与$\overline{\w}$的距离可以被用来识别低质量的人脸~\cite{karras2019style}启发,分析了基于随机选择和平均隐向量$\overline{\w}$的两种初始化 $\w^{*}$的选择. 
+然而，可能需要大量的随机初始化才能获得稳定的重建~\cite{zhu2016generative}，从而无法进行实时的处理. 
+因此，一些~\cite{zhu2016generative,tewari2020stylerig,guan2020faster}直接训练深度神经网络去最小化~\eqref{eqn:def}来代替基于优化的方法，如章节~\ref{sec:learning-based}所介绍.
+
+我们注意到一些~\cite{zhu2016generative,bau2019inverting,guan2020faster}建议使用编码器来提供更好的初始化以进行优化(这将在~\ref{sec:hybrid}章节中讨论).
+
+\subsubsection{基于混合方法的 GAN 逆向}
+\label{sec:hybrid}
+
+混合的方法~\cite{zhu2016generative,bau2019seeing,bau2019inverting,zhu2020indomain,guan2020faster} 利用上面讨论的两种方法的优点. 
+作为这一领域的先驱之一, Zhu~\etal~\cite{zhu2016generative} 提出一个框架，通过训练一个单独的编码器$E(x; \theta_E)$然后使用得到的$\z$作为优化初始化.
+基于学习的预测模型可以快速自底向上地为一个非凸优化问题~\eqref{eqn:def}进行初始化.
+
+随后的研究基本上遵循了这一框架，并提出了几种变体。例如, 为了逆向$G$,Bau~\etal~\cite{bau2019inverting}开始训练一个网络$E$来获得合适的初始化的隐向量$\z_{0}=E(x)$及其中间表示$\rr_{0}=g_{n}(\cdots(g_{1}(\z_{0})))$,其中$g_{n}(\cdots(g_{1}(\cdot)))$是$G(\cdot)$的逐层表示.
+然后，该方法使用$\rr_{0}$初始化搜索$\rr^{*}$，以获得靠近目标$x$的重构$x^{\prime}=G(\rr^{*})$(详细信息请参阅~\ref{sec:layerwise}部分).
+表明在大多数现有的方法中，生成器$G$没有提供它的领域知识来指导编码器$E$的训练，因为$G(\cdot)$的梯度根本没有考虑在内. 
+因此，一种特定域的GAN逆向方法被开发出来，它既重构输入图像，又确保逆向后的编码对语义编辑有意义(有关更多细节，请参阅~\ref{sec:semantic-aware}部分).
+
+除了上述框架以外,Guan~\etal~\cite{guan2020faster}为StyleGAN反逆向提出一个协作学习框架:嵌入网络基于优化的迭代给出了一个合理的隐向量初值$\mathbf{w_e}$,并且用迭代器 $\mathbf{w_o}$更新隐向量,反过来,这一迭代器监督嵌入网络产生更精确的隐向量. 嵌入网络 $\mathcal{L}_{emb}$ 和 迭代器$\mathcal{L}_{opt}$ 的目标函数为
+\begin{equation}
+\begin{aligned}
+\mathcal{L}_{emb} & = \lambda_1 \underbrace{||\mathbf{w_e} - \mathbf{w_o}||_2^2}_{\text{latent loss}} + \lambda_2 \underbrace{||{x_e} - {x_o}||_2^2}_{\text{image loss}} + \lambda_3 \underbrace{\Phi({x_e}, {x_o})}_{\text{feature loss}}, \\
+\mathcal{L}_{opt} & = ||G(\w) - {x}||_2^2 + \alpha \Phi(G(\w), x),\\
+\end{aligned}
+\end{equation}
+其中 $\w \in \mathcal{W^+}$ 是被优化的隐向量, $G$ 是在FFHQ~\cite{karras2019style}中预训练的 StyleGAN 的生成器,  StyleGAN 的生成器 $G$根据参数$\mathbf{w_e}$ 和 $\mathbf{w_o}$生成${x_e} = G(\mathbf{w_e})$ 和 ${x_o} = G(\mathbf{w_o})$, $\Phi(\cdot)$ 是LPIPS 损失~\cite{zhang2018unreasonable},  $\lambda_1$, $\lambda_2$, $\lambda_3$, $\alpha$ 是损失的权重.
+
+
+
+
+\subsubsection{封闭形式解法(也可以认为直接求出解析解)}
+\label{sec:closed}
+最近，有两种方法~\cite{nurit2020steerability,shen2020closedform}发现，可解释的方向可以直接在\textit{封闭的形式}中计算，不需要任何训练或优化(人话就是,可解释的方向是可以套公式直接求出的,是一个解析解).
+具体而言, Nurit~\etal~\cite{nurit2020steerability} 观察BigGAN~\cite{brock2018large}的第一层的输出  (第一层将$\z$映射到一个具有低空间分辨率的张量) 已经有空间坐标并确定生成的图像的粗结构，这表明对第一层的输出应用几何变换类似于对生成的图像直接应用几何变换，比如对每个$\z$进行运算 $G(\z+\q)\approx \mathcal{T}\{G(\z)\}$. 
+$G$ 是一个预训练的生成器, $\mathcal{T}$ 是希望对图像进行的变换, $\q$ 是隐空间中的目标方向.
+目标是让 $\W(\z+\q)+\bb$ 尽可能的接近$\PP(\W\z+\bb)$.
+$\PP$表示第一层输出分辨率中与$\mathcal{T}$对应的矩阵. 
+$\W$ 和 $\bb$ 是第一层的权重和偏差.
+为了保证这对$\z$的随机抽取有效，他们对该问题进行了建模
+\begin{equation}
+\min_{\q}\;
+\E_{\z \sim p_{\z}}
+[\|\D\Big(\W(\z+\q)+\bb-\PP(\W\z+\bb)\Big)\|^2],
+\label{eqn:LinObjNurit}
+\end{equation}
+其中 $p_{\z}$ 是$\z$的概率密度函数, $\D$是一种对角线矩阵，可用于为张量的不同元素分配不同的权重. 
+假设 $\E[\z]=0$, 变换$\PP$对应的最优线性方向可得到一个封闭解 $\q$,
+\begin{equation}
+\q = (\W^T\!\D^2\,\W)^{-1}\W^T\!\D^2(\PP-\I)\,\bb.
+\label{eqn:q}
+\end{equation}
+给定线性轨迹 $\z+\q$, 生成的图像经过许多步骤后，不可避免地会扭曲，甚至变得毫无意义.
+因此，他们进一步提出非线性轨迹来解决这些问题。隐空间的移动形式为$\z_{n+1}=\M\z_{n}+\q$，其中变换$\PP$由向量$\q$和对角矩阵$\M$决定。然后将问题~\eqref{eqn:LinObjNurit} 表述为
+\begin{equation}
+\min_{\M,\q}\;\E_{\z \sim p_{\z}}[\|\D\Big(\W(\M\z+\q)+\bb-\PP(\W\z+\bb)\Big)\|^2].
+\label{eq:LinNonObjNurit}
+\end{equation}
+再次假设 $\E[\z]=0$ 并额外假设 $\E[\z\z^T]=\sigma^2_z \I$,  $\q^*$和\eqref{eqn:q}中一样,并且$\M$ 为
+\begin{equation}
+\M_{i,i} = \frac{\w_i^T\D^2\PP\,\w_i}{\w_i^T\D^2\,\w_i},
+\label{eqn:M}
+\end{equation}
+其中 $\w_i$ 是$\W$的第$i$列.
+
+Shen~\etal~\cite{shen2020closedform} 观察到，图像的语义变换，通常表示为将隐向量移动到某个方向$\n^{\prime} = \z + \alpha \n$，实际上是由潜在方向$\n$决定的，与采样出的向量$\z$无关.
+基于这个, 他们找到了造成输出图像显著的改变量$\Delta\y$的方向$\n$: $\Delta\y =\y^{\prime}-\y= (\A(\z + \alpha\n) + \bb) - (\A\z + \bb) = \alpha\A\n$, 其中 $\A$ 和 $\bb$ 分别是$G$中特定层的权重和偏差. 
+得到的公式$\Delta\y = \alpha\A\n$, 提出在投影向量上加上项$\alpha\A\n$，便可实现以$\n$为方向的所需编辑，并指出权值参数$\A$应包含图像变化的基本知识。因此，探索潜在语义的问题可以通过解决下面的优化问题来分解:
+\begin{equation}
+  \n^* = \underset{\{\n\in\R^d:\ \n^T\n = 1\}}{\arg\max} ||\A\n||_2^2.  
+  \label{eq:single-optimization}    
+\end{equation}
+期望的方向$\n^*$，即GAN中潜在语义的封闭形式分解，应该是矩阵$\A^T\A$的特征向量.
+
+\subsection{GAN逆向方法的特点}
+\label{sec:characteristics}
+
+本节讨论GAN逆向方法的一些重要特点. 
+
+\subsubsection{可解释的方向}
+\label{sec:interpretable-directions}
+
+一些GAN逆向方法支持在隐空间中发现可解释的方向，即通过步长$\alpha$将隐向量$\z$按预期的方向$\n$变化来控制生成过程，通常可以表示为矢量算术$\z^{\prime}=\z+\alpha\n$。这些方向目前可以通过有监督、无监督或自监督的方式发现.
+
+\noindent\textbf{有监督的方式.} 
+现有的基于监督学习的方法通常随机抽取大量的隐向量，合成一组图像，通过引入一个预先训练的分类器，用一些预先定义的标签来标注它们 (比如,预测人脸属性或光线方向)~\cite{goetschalckx2019ganalyze,shen2020interpreting,abdal2020styleflow,jahanian2020steerability} 或者 提取图像的统计信息 (比如, 色差)~\cite{plumerault2020control}.
+例如，为了解释GANs学习到的人脸表征，Shen~\etal~\cite{shen2020interpreting}使用一些现成的分类器在隐空间中学习一个超平面作为分离边界，并预测合成图像的语义得分.
+Abdal~\etal~\cite{abdal2020styleflow}使用连续规范化流(CNF)学习$\mathcal{Z}$空间和$\mathcal{W}$空间之间的语义映射.
+这两种方法都依赖于属性的可用性(通常由人脸分类器网络获得)，这可能意味着很难获得新的数据集,并且需要手工标记.
+Jahanian~\etal~\cite{jahanian2020steerability} 以自监督的方式优化了轨迹 (包括了线性和非线性的, 如图~\ref{fig:walk}) 
+以线性移动$\ww$为例，给定逆向后的源图像$G(\z)$，他们通过最小化目标函数来学习$\ww$
+\begin{equation}
+\w^* = \underset{\w}{\arg\min} {\E}_{\z,\alpha} [\mathcal{L} ( G(\z\!+\!\alpha \w), \texttt{edit}(G(\z), \alpha))].
+\label{eq:optimal_w}
+\end{equation}
+这里$\mathcal{L}$ 度量了沿着潜在方向移动$\alpha$步后被生成的图像$G(\z+\alpha \ww)$与源自原图$G(\z)$的目标\texttt{edit}($G(\z), \alpha$)之间的距离.
+
+\figwalk
+
+\noindent\textbf{无监督的方式.} 
+由于每次采样时所使用的采样码和合成图像是不同的，因此有监督的方式会给实验带来偏差，并可能导致不同的可解释方向发现~\cite{shen2020closedform}. 
+特别是在缺少标签的情况下,它还严重限制了现有方法可以发现的一系列方向. 
+此外，这些方法发现的单个控件通常是耦合在一起的，影响多个属性，而且通常是非局部的.
+因此, 一些研究~\cite{voynov2020latent,lu2020discovery,eric2020GANSpace,cherepkov2020navigating} 意在以无监督的方式发现隐空间中的可解释方向, 比如不需要成对的数据.
+比如, Härkönen~\etal~\cite{eric2020GANSpace} 基于应用于隐空间或特征空间的PCA识别重要的潜在方向，为图像合成创建可解释的控制。获得的主成分对应于特定的属性，对主成分的选择性应用允许对特征进行控制.
+Shen~\etal~\cite{shen2020closedform} 和 Nurit~\etal~\cite{nurit2020steerability} 提出在不进行任何训练和优化的情况下，从预先训练的模型中直接计算封闭形式的可解释方向 (参见~\ref{sec:closed}节了解更多细节).
+
+\subsubsection{语意察觉}
+\label{sec:semantic-aware}
+
+具有语义感知特性的GAN逆向方法可以在像素级进行图像重建，并将隐向量与隐空间中出现的知识进行对齐. 
+语义感知的隐向量可以重用GAN模型中编码的丰富知识，从而更好地支持图像编辑.
+如图Figure~\ref{fig:indomain}的上部分所示，现有的方法通常随机抽取一组隐向量$\z$，并将其输入到$G(\cdot)$中，得到相应的合成结果$x^{\prime}$. 
+然后编码器 $E(\cdot)$ 用下面的损失函数训练
+\begin{equation}
+\min_{\Theta_{E}} \mathcal{L}_{E}=\|\z-E(G(\z))\|_{2},
+\end{equation}
+其中 $\|\cdot\|_{2}$ 表示$l_{2}$ 距离, $\Theta_{E}$表示编码器的参数 $E(\cdot)$.
+
+Collins~\etal~\cite{collins2020uncovering} 使用潜在对象表示来合成具有不同样式的图像并减少伪影.
+然而，仅仅通过重构$\z$的监督是不足以训练出准确的编码器的. 
+为了缓解这个问题, Zhu~\etal~\cite{zhu2020indomain} 提出一种特定于领域的GAN逆向方法，在像素级和语义级恢复输入图像.
+该方法首先训练一个域引导编码器将图像空间映射到隐空间，使编码器产生的所有编码都在域内。然后，它们通过将编码器作为一个正则化项来执行实例级域正则化优化。这样的优化有助于更好地重构像素值，而不影响逆向编码的语义属性.
+训练过程如下
+\begin{equation} 
+\begin{aligned}
+\min_{\Theta_{E}} \mathcal{L}_{E}=\|x-G(E(x))\|_{2} 
+&+\lambda_1\|F(x)-F(G(E(x)))\|_{2} \\ 
+&-\lambda_2 {\E}[D(G(E(x)))],
+\end{aligned}
+\end{equation} 
+其中 $F(\cdot)$ 表示VGG特征提取, $\E[D(\cdot)]$ 是判别器的损失, $\lambda_1$ 和 $\lambda_2$ 是感知损失项和鉴别器的损失函数的权重.
+
+所提出的域引导编码器的反码可以很好地根据预先训练好的图像生成器重建输入图像，并保证代码本身具有语义意义。然而，代码仍然需要细化以更好地适应单个目标图像的像素值.
+基于域导向编码器, Zhu~\etal 用两个模块设计一个域正则化优化:
+(i) 以域引导编码器的输出为起点，避免了局部极小化，缩短了优化过程; (ii) 使用域引导编码器对生成器语义域内的隐向量进行正则化. 
+目标函数是
+\begin{equation}
+\begin{aligned}
+\z^{*}=\underset{\z}{\arg \min }\|x-G(\z)\|_{2} &+\lambda_1^{\prime}\|F(x)-F(G(\z))\|_{2} \\
+&+\lambda_2^{\prime}\|\z-E(G(\z))\|_{2},
+\end{aligned} 
+\end{equation}
+其中 $x$ 是待逆向的目标图片, $\lambda_1^{\prime}$ 和$\lambda_2^{\prime}$ 分别是感知损失和编码器正则化的权重.
+
+\figindomain
+
+\subsubsection{逐层}
+\label{sec:layerwise}
+
+因为当网络层数很多的时候,在完全逆向问题~\eqref{eqn:def}中定义生成器是不太可行的,一些方法~\cite{bau2019seeing,lei2019inverting,aberdam2020invert} 通过将生成器$G$分解成各个层来解决可处理的子问题:
+\begin{equation}
+G=G_{f}(g_{n}(\cdots((g_{1}(\z)))),
+\end{equation}
+其中 $g_{1}, \ldots, g_{n}$ 是 $G$的早期层, 而 $G_{f}$ 构造$G$的所有后续层.
+
+最简单的逐层GAN逆向是基于一层神经元. 
+我们开始逆向一个单层，以发现是否$\underset{\z}\min\|x-G(\z) \|_p=0$(~\eqref{eqn:def}中的特殊形式)，对于任何$p$范数是否成立. 
+因为问题是非凸的, 需要额外的假设 \cite{huang2018provably} 来保证梯度下降法可以求解$\underset{\z}{\arg\min}\|x-G(\z)\|$.
+然而，当问题是可实现的，要找到可行的$\z$，使$x= \text{ReLU}(\W\z+\bb)$，可以通过求解线性规划来给函数求逆:
+\begin{eqnarray}
+{\w_i}^\top \z + b_i = x_i, &\forall i \text{ s.t. } x_i>0, \nonumber\\
+{\w_i}^\top \z + b_i\leq 0, &\forall i \text{ s.t. } x_i= 0.
+\label{eqn:single_layer}
+\end{eqnarray}
+~\eqref{eqn:single_layer}的解集是凸的，形成一个多面体.
+然而，它也可能包括不可数个可行点~\cite{lei2019inverting}, 这让我们不清楚如何逐层地逆向.
+有几种方法做了额外的假设，将上述结果推广到更深层次的神经网络. 
+Lei~\etal~\cite{lei2019inverting} 假设输入信号被 $\ell_1$或$\ell_{\infty}-$有界噪声破坏，提出了利用线性规划逐层地生成式模型的逆向方案. 
+对一个确定稳定的逆向问题的分析仅限于以下情况: 
+(1) 网络权重应该是独立同分布的高斯随机变量; 
+(2) 每一网络层都应该扩展一个常数因子; 
+(3) 最后的激活函数要是 ReLU~\cite{nair2010rectified} 或者 leaky-ReLU~\cite{maas2013rectifier}.
+然而，这些假设在实践中往往并不成立. 
+Aberdam~\etal~\cite{aberdam2020invert}放松了扩展假设~\cite{lei2019inverting},并提出一种依赖于非零元素数目展开的方法. 
+它们用$\ell_2$将problem~\eqref{eqn:def}重新表述为逐层的表达式
+\begin{equation}
+\underset{\z}{\arg\min} \Bigl\|\y - \phi((\prod_{i=L}^{0} \W_i^{\hat{\mathcal{S}}_{i+1}})\z)\Bigr\|_2^2,
+\end{equation}
+其中 $\y=G(\z)+\mathbf{e}$, $\{\mathcal{S}_i\}_{i=1}^L$ 是每一层的支撑集, $\phi$ 是可逆激活函数 ReLU, 而 $\mathbf{W}_i^{\mathcal{S}}$ 表示根据支撑集$\mathcal{S}$的行支撑矩阵。
+因此，可以利用所有中间特征向量的稀疏性逐层求解稀疏编码问题来逆向模型。这种方法不依赖于权重的分布，也不依赖于最后一层所选择的激活函数。然而，这种方法只能用于逆向非常浅的网络.
+
+为了逆向复杂的最先进的GAN, Bau~\etal~\cite{bau2019seeing} 建议解决比较容易的后续层$G_f$的逆向问题 :
+\begin{equation}
+x = G_f(\rr^{*}),
+\label{eqn:ganseeing}
+\end{equation}
+其中 $\rr^{*} = \underset{\rr}{\arg\min} \ell(G_f(\rr), \rr)$ 和$\ell$ 图像特征空间的距离度量. 
+他们用一个两阶段的混合GAN逆向框架解决了逆向问题~\eqref{eqn:def} : 首先构造一个神经网络$E$，将整个$G$近似逆向，计算一个估计的$\z_0 = E(x)$，然后求解一个优化问题，识别一个中间表示 $\rr^* \approx \rr_0 = g_n(\cdots(g_1(\z_0)))$来生成一个重建图像 $G_f(\rr^*)$，从而接近地恢复$x$.
+对于每一层 $g_i \in \{g_1,...,g_n, G_f\}$, 一个小型的网络 $e_i$ 被首先训练出来逆向 $g_i$. 
+也就是说，定义$\rr_i = g_i(\rr_{i-1})$，目标是学习一个网络$e_i$，它近似于计算$\rr_{i-1} \approx e_i(\rr_{i})$，并确保网络$e_i$的预测能够很好地保存层$g_i$，比如， $\mathbf{r_{i}} \approx g_i(e_i(\rr_{i}))$的输出.
+因此，$e_i$被训练成最小化左逆和右逆的损失:
+\begin{equation}
+\begin{aligned}
+\mathcal{L}_{\text{L}} & = \E_{\z}[||\rr_{i-1}- e(g_i(\rr_{i-1}))||_1], \\
+\mathcal{L}_{\text{R}} & = \E_{\z}[||\rr_i - g_i(e(\rr_i))||_1],\\
+e_i & = \underset{e}{\arg\min}\quad \mathcal{L}_{\text{L}} + \lambda_{\text{R}}\; \mathcal{L}_{\text{R}},
+\end{aligned}
+\end{equation}
+其中 $||\cdot||_1$表示一个$\mathcal{L}_1$ 损失$\lambda_{\text{R}}$ 被设置为 0.01 来加强重建 $\rr_{i-1}$.
+为了集中在生成器产生的表示的集合附近进行训练，该方法使用样本$\z$和层$g_i$计算$\rr_{i-1}$和$\rr_i$的样本，使$\rr_{i-1} = g_{i-1}(\cdots g_1(\z))$.
+一旦所有的层都被倒置，所有$G$的逆向网络就可以组成为
+\begin{equation}
+{E}^{*}= e_1(e_2(\cdots(e_n(e_f(x))))).
+\end{equation}
+通过对复合的网络$E^*$进行微调，将$G$作为一个整体进行逆向，得到最终的结果$E$.
+
+\subsubsection{无干涉}
+\label{sec:non-inference}
+
+当涉及多个属性时，编辑一个属性可能会影响另一个属性，因为某些语义没有分离。
+无干涉GAN逆向旨在解决无干涉的多属性图像处理问题
+这一特点在其他GAN逆向的方法中也被称为多元~\cite{nitzan2020harness} 或者有条件的编辑~\cite{shen2020interpreting} .
+例如，为了编辑多个属性, Shen~\etal~\cite{shen2020interpreting} 制定基于逆向的图像处理 $x^{\prime}=G(\z^{*}+\alpha \n)$, 其中 $\n \in \mathbb{R^d}$ 是单位法向量，表示由两个隐向量$\z_{1}$ and $\z_{1}$定义的超平面.
+在这个方法中, $k$ 个属性 $\{\z_{1}, \cdots, \z_{k}\}$ 可以生成 $m$ (其中 $m \leq k(k-1)/2$) 对应的超平面 $\{\n_{1}, \cdots, \n_{m}\}$. 
+多属性的无干涉操作是指$\{\n_{1}, \cdots, \n_{m}\}$相互正交. 
+如果这个条件不成立，某些语义会相互关联，可以用$\n_{i}^{\top} \n_{j}$来度量第$i$个和第$j$个语义之间的耦合.
+特别地，这种方法使用投影来正交化不同的向量. 
+如图~\ref{fig:projection}, 给定两个具有法向量$\n_{1}$ 和$\n_{2}$的超平面 , 目标是找到一个投影的方向 $\n_{1}-(\n_{1}^{\top} \n_{2}) \n_{2}$, 使得沿着这个新方向移动样本可以改变``属性1``但不影响``属性2``. 
+对于涉及到多个属性的情况，它们减去由所有条件方向构造的平面上的原始方向的投影.
+其他 基于预先训练的StyleGAN~\cite{karras2019style} 或者 StyleGAN2~\cite{karras2020analyzing} 模型GAN逆向的方法~\cite{guan2020faster,viazovetskyi2020distillation}也可以操纵多个属性，因为$\mathcal{W}$ 空间比$\mathcal{Z}$空间具有更强的可分离性.
+然而, 根据最近的发现~\cite{xia2020tedigan,liu2020style,wu2020stylespace}, 一些属性仍然耦合在$\mathcal{W}$空间中，当我们操作给定的图像时，这会导致一些不必要的更改.
+除了在语义$\mathcal{W}$空间中操作, Liu~\etal~\cite{liu2020style} 提出$\mathcal{S}$ 空间 (风格空间), 在这个空间中所有的面部属性都是线性可分的.  
+风格编码是通过连接StyleGAN2~\cite{karras2020analyzing}生成器的所有仿射层的输出而形成的.
+实验表明 $\mathcal{S}$ 空间可以减轻\textit{空间中耦合的变换} 并进行精确的局部修改.
+通过直接干涉风格$s \in \mathcal{S}$ , 他们的方法可以在不影响他人的情况下操纵不同的面部属性和不同的语义方向，并且可以实现对本地翻译的细粒度控制.
+
+\fignoninference
+
+\figrewrite
+
+\subsubsection{感兴趣区域ROI}
+\label{sec:local}
+
+
+GAN逆向的ROI属性允许用户操作编辑给定图像中的一些需要的区域，这通常涉及到额外的工具来选择需要的区域, 如图~\ref{fig:local}.
+例如，为定位和更改特定的语义关系, Bau~\etal~\cite{bau2020rewriting} 推广线性联想记忆~\cite{kohonen1973matrix} 到深层生成器的非线性卷积层. 
+模型中的每一层都将潜在规则存储为一组键-值关系，这些键-值关系位于隐藏的特征之上.
+他们提出了一个有约束的优化过程，可以在关联记忆中添加或编辑一个特定的规则，同时保留模型中现有的语义关系.
+如图~\ref{fig:ganrewriting}, 
+它们提供了一个三步重写过程:复制、粘贴和上下文，使模型重写对于新手用户来说更加直观. 
+Abdal~\etal~\cite{abdal2019image2stylegan,abdal2020image2stylegan2} 分析在FFHQ~\cite{karras2019style}上训练的StyleGAN的带有缺损的图像嵌入后的结果,比如带有掩盖区域的图像的嵌入.
+实验表明，StyleGAN嵌入对图像缺陷有较强的鲁棒性，不同面部特征的嵌入是相互独立的~\cite{abdal2019image2stylegan}. 
+在观察的基础上，他们开发了一种基于掩盖的局部操作方法。他们在掩盖之外找到一个貌似合理的嵌入区域，并在掩盖像素中填充合理的语义内容. 
+他们方法的感兴趣区域的局部编辑结果见图~\ref{fig:local} 和图~\ref{fig:local_style_tranfer}.
+
+\figroi
+
+\subsubsection{分布外}
+\label{sec:ood}
+
+
+一些GAN逆向方法支持逆向野外的真实图像，这些图像不是由训练数据的相同过程生成的。我们把这种能力称为分布外泛化~\cite{ren2019likelihood,hendrycks2016baseline,lee2018simple}.
+这个特点是GAN逆向方法编辑真实图像的先决条件.
+在~\cite{daras2020your}中, Daras~\etal 显示局部稀疏层(基于局部上下文)比致密层能显著地逆向GAN模型. 
+他们通过操作通过谷歌搜索的红脚鹬图像，证明了所提方法的泛化能力，这些搜索出的图像在训练过程中没有出现. 
+Shen~\etal~\cite{shen2020interpreting} 提出了人脸编辑的InterFaceGAN模型，该模型可以将目标图像还原为隐藏代码，并直接对隐向量进行编辑。他们分析了个体语义属性是如何在隐空间中编码的，并显示了一个真或假的面部属性与隐空间的线性子空间对齐。通过简单地调整隐向量，这种方法能够操纵给定的真实面部图像的性别、年龄、姿势和表情.
+In~\cite{pan2020exploiting}, Pan~\etal 提出了深度生成先验算法(DGP)来嵌入丰富的自然图像知识.
+DGP方法作为一种通用的图像先验，可以在鉴别器度量下渐进式地重建退化图像，从而恢复图像的缺失信息.
+近期, Abdal~\etal~\cite{abdal2020styleflow} 将StyleFlow方法引入到对stylean隐空间的条件探索中. 
+利用所提出的条件连续归一化流，分析了StyleGAN 的有条件的采样和控制属性的编辑. 
+如图~\ref{fig:ood}, 与同期技术相比，该方法能够很好地处理极端姿态、不对称表情和年龄多样性.
+Zhu~\etal~\cite{zhu2020indomain} 提出一种特定域的GAN逆向方法，在像素级和语义级恢复输入图像.
+虽然只使用FFHQ数据集进行训练，但他们的模型不仅可以推广到多个人脸数据集的真实人脸图像~\cite{chelnokova2014rewards, courset2018caucasian, yi2019apdrawinggan} 还有从网上收集的绘画、漫画和黑白照片.
+除了图像外，近年来的方法也显示出了对其他模态的超分布泛化能力,比如, 草图~\cite{richardson2020encoding} 和文本~\cite{xia2020tedigan}.
+
+\figood

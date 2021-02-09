@@ -1,0 +1,172 @@
+\section{应用}
+\label{sec:applications}
+
+找到逆向问题的一个精确的解决方案,使我们可以进一步微调模型权重，以匹配目标图像，而不失去下游编辑能力。GAN逆向不需要特定于任务的密集标记数据集，可以应用于许多任务，如图像处理、图像插值、图像恢复、风格转移、新视图合成，甚至对抗防御, 如图~\ref{fig:application}.
+
+\subsection{图像处理}
+\label{sec:manipulation}
+
+给定一幅图像$x$，我们希望通过操纵其隐向量$\z$来编辑其特定区域，并通过对训练好的GAN模型$G$的隐向量进行线性变换，得到目标图像${x^{\prime}}$的隐向量。这可以在GAN逆向的框架下表述为添加一个缩放的差分向量的操作:
+\begin{equation}
+x^{\prime}=G(\z^{*}+\alpha \n), 
+\end{equation}
+其中$\n$是与隐空间中特定语义对应的法线方向，$\alpha$是操作的步长。
+换句话说，如果将隐向量移向某个方向，则输出图像中包含的语义应该相应变化. 
+例如，Xu~\etal~\cite{xu2020ghfeat}使用一个分层编码器来获取采样的特征，将学习到的GH-Feat与StyleGAN生成器的内部表示进行匹配，从而产生多个级别的高保真全局和局部编辑结果.
+Voynov~\etal~\cite{voynov2020latent} 在不改变前景的情况下，逐步确定背景去除或背景模糊所对应的方向.
+In~\cite{shen2020interpreting} Shen~\etal~通过对不同的矢量进行投影和正交，实现对单个和多个人脸属性的操作.
+Recently, Zhu~\etal~\cite{zhu2020indomain} 通过减少或增加语义程度来执行语义操作. 
+两个方法都~\cite{shen2020interpreting,zhu2020indomain}使用投影策略搜索语义方向$\n$.
+
+除了语义之外，还有一些方法可以操作图像中的其他信息，例如几何、纹理和颜色. 
+比如, 一些研究~\cite{abdal2020styleflow,abdal2019image2stylegan} 可以改变面部操作的姿态旋转，其他~\cite{voynov2020latent} 可以操纵几何形状(例如缩放/平移/旋转)，纹理(例如背景模糊/添加眼镜/锐化)，和颜色(例如照明/饱和度).
+
+\figapp
+
+\figcorrect
+
+\subsection{图像修复}
+\label{sec:restoration}
+
+假设在采集过程中$\hat{x}=\phi(x)$得到$\hat{x}$，其中$x$为无失真图像，$\phi$为退化变换.
+大量的图像恢复任务可以看作是给定$\hat{x}$恢复$x$。一个常见的实践是学习从$\hat{x}$到$x$的映射，这通常需要针对不同的$\phi$进行特定任务的训练.
+另外，GAN逆向可以利用存储在某些先验中的$x$的统计数据，并通过查看$\hat{x}$作为对$x$的部分观察，在$x$的空间中搜索最匹配$\hat{x}$的最优$x$.
+例如, Abdal~\etal~\cite{abdal2019image2stylegan,abdal2020image2stylegan2} 发现 StyleGAN 嵌入对图像缺陷非常鲁棒,比如被遮盖的区域.
+基于这一观察，他们提出了一种基于逆向的图像修复方法，即将源带有缺陷的图像嵌入到$\mathcal{W}^+$空间的前几层中以预测缺失的内容，并嵌入到后面的层中以保持颜色一致性.
+Pan~\etal~\cite{pan2020exploiting} 声称一个固定的GAN生成器不可避免地受到训练数据分布的限制，其逆向不能忠实地重建看不见的和复杂的图像.
+因此，他们提出了一种轻松且更实用的重建公式，用于在训练过的GAN模型中获取自然图像的统计数据，作为先验，即深层生成先验(DGP).
+具体地说，他们重新定义\eqref{eqn:opt}，这样就允许在目标图像上实时微调生成器参数:
+\begin{equation}
+\theta^*,\, \z^* = \underset{\theta,\, \z}{\arg\min}\, \ell(\hat{x}, \phi(G(\z; \theta))).
+\label{eqn:opt_dgp}
+\end{equation}
+他们的方法在视觉上优于或比得上最先进的着色方法~\cite{larsson2016learning}, 着色~\cite{ulyanov2018deep}, 和超分辨率~\cite{shaham2019singan}.
+而在GAN模型合成的人脸图像中有时也会出现伪影~\cite{karras2017progressive,karras2019style}, 
+Shen~\etal~\cite{shen2020interpreting} 结果表明，隐藏空间中编码的质量信息可以用于恢复. 
+PGGAN~\cite{karras2017progressive}生成的伪隐可以,通过使用线性支持向量机将隐向量移动到由分离超平面定义的质量正方向，来进行校正~\cite{cortes1995support} (如图~\ref{fig:correction}). 
+ 
+\subsection{图像插值}
+\label{sec:interpolation}
+
+利用GAN逆向，可以通过在给定图像的相应隐向量之间变形来插值新的结果.
+给定预训练的生成器 $G$ 和两个目标图片$x_{A}$ 和 $x_{B}$, 它们之间的变形可以通过插值它们的隐向量$\z_{A}$ 和 $\z_{B}$来自然地完成. 
+通常，$x_{A}$和$x_{B}$之间的变形可以通过线性插值得到~\cite{xia2020gaze,pan2020exploiting}: 
+\begin{equation}
+\z=\lambda \z_{A}+(1-\lambda) \z_{B}, \lambda \in(0,1).
+\label{eqn:interp}
+\end{equation}
+Abdal~\etal~\cite{abdal2019image2stylegan} 通过将StyleGAN的$\mathcal{W}$空间嵌入到扩展的隐空间中，对向量进行线性插值运算 $\mathcal{W^{*}}$.
+类似的操作也可以在~\cite{nitzan2020harness}中找到.
+另一方面, 用DGP~\cite{pan2020exploiting}, 重构两个目标图像$x_{A}$和$x_{B}$会得到两个生成器$G_{\theta_{A}}$和$G_{\theta_{B}}$，以及相应的隐向量$ z_{A}$和$ z_{B}$，因为它们也对$G$进行了微调. 
+在这种情况下，$x_{A}$和$x_{B}$之间的变形可以通过对隐向量和生成器参数的线性插值来实现: 
+\begin{equation}
+\begin{aligned}
+\z&=\lambda \z_{A}+(1-\lambda) \z_{B},\\ \theta&=\lambda \theta_{A}+(1-\lambda) \theta_{B}, \; \lambda \in(0,1),
+\end{aligned}
+\label{eqn:interp_dgp}
+\end{equation}
+并且可以用新的$\z$和$\theta$生成图像.
+
+\subsection{风格迁移}
+\label{sec:style_tranfer}
+
+为了将一幅图像的样式转换到另一幅图像或混合两幅图像的样式，人们提出了许多基于GAN逆向的方法。给定两种隐向量，风格迁移可定义为交叉操作~\cite{karras2019style,abdal2019image2stylegan}.
+Abdal~\etal~\cite{abdal2019image2stylegan} 介绍了两种风格迁移公式，一种是嵌入的风格化图像与其他人脸图像(如人脸照片和人脸素描)之间的风格迁移公式，另一种是来自不同类的嵌入图像(如人脸照片和非人脸绘画)之间的风格迁移公式. 
+保留前9层嵌入内容图像的隐向量(对应空间分辨率$4^{2}$至$64^{2}$)，覆盖后9层风格图像的隐码(对应空间分辨率$64^{2}$至$1024^{2}$).
+在~\cite{abdal2020image2stylegan2}, Abdal~\etal~提供一个局部风格迁移方法(参见算法~\ref{alg:local_style_tranfer} 并见图~\ref{fig:local_style_tranfer}).
+提出了一种基于梯度优化的嵌入算法，该算法从初始隐向量开始迭代更新图像. 
+嵌入由两个空间构成:语义 $\w \in \mathcal{W^{+}}$ 空间和一个噪声$\n \in \mathcal{N}$ 空间编码高频细节.
+局部风格迁移修改输入图像$x$中的区域，将其转换为风格参考图像 $y$所定义的风格. 
+第一步是将图像嵌入到$\mathcal{W}^{+}$空间中，得到代码$\mathbf{W ^*}$，初始化噪声代码为$\mathbf{n_i}$.
+第二步是是使用模糊掩码$M_b$和掩码$\mathcal{W}^{+}$,来优化$W_{l}$以及掩码风格迁移$M_{st}$.(完全不知道在说什么,这里标注一下英文原文)The second step is to apply the Masked $\mathcal{W}^{+}$ Optimization $W_{l}$ along with the Masked Style Transfer $M_{st}$ using blurred mask $M_b$. 
+最后，对输出的最终的图像执行Masked Noise Optimization $M k_{n}$。$W_{l}$函数只优化 $\w \in \mathcal{W}^{+}$
+\begin{equation}
+\begin{aligned}
+W_l(M_p, M_m, \mathbf{w_m}, \mathbf{w_i}, \mathbf{n_i},x) & = \underset{\mathbf{w_m}}{\arg\min}\, L_p(M_{p}, G(\w, \n), x) \\
+& + \|M_{m} \odot (G(\w, \n) - x)\|,
+\end{aligned}
+\label{eqn:ml}
+\end{equation}
+其中 $L_p$ 表示感知损失~\cite{johnson2016perceptual},
+$\mathbf{w_i}$ 和 $\mathbf{n_i}$ 为初始变量值, 
+$\mathbf{w_m}$ 是 $\mathcal{W}^{+}$ 空间中的掩码, $\odot$ 为Hadamard积(对应元素相乘),  $G$ is 是 StyleGAN 生成器.
+$\mathbf{w_m}$ 为1代表需要更新的变量，0代表保持不变的变量.
+$M_{st}$ 方程优化$\w$来得到一个来自风格图像$y$的目标样式
+\begin{equation}
+M_{st}(M_{s},\mathbf{w_i},\mathbf{n_i}, y) = \underset{\w}{\arg\min}\, L_s (M_s, G(\w, \n), y), 
+\label{eqn:mst}
+\end{equation}
+其中 $L_s$ 是风格损失~\cite{gatys2016image}.
+ ${Mk}_{n}$方程仅仅优化 $\n \in N_s$ , 让 $\w$ 为常数: ${Mk}_{n}(M, \mathbf{w_i},\mathbf{n_i}, x, y) = \underset{\n}{\arg\min} \|M_m \odot (G(\w, \n) - x)\|
++ \|(1 - M_m) \odot (G(\w, \n) - y)\|$, 其中噪声空间$N_s$ 维数是$\{\R^{4\times4}, \cdots,\R^{1024\times1024}\}$.
+算法~\ref{alg:local_style_tranfer}展示了该方法的主要步骤. 
+他们使用交替优化策略，即优化$\w$，同时保持$\n$固定，随后优化$\n$，同时保持$\w$固定.
+除了局部风格迁移，这种方法还可以通过应用不同的空间掩码，用于图像修复和使用涂鸦进行局部编辑.
+
+\algotransfer
+
+\figtransfer
+
+\subsection{压缩感知}
+\label{sec:compressing}
+通常, 压缩感知可表示为:从$\y={A} x+\mathbf{e}$的形式的观测值$\y \in \R^{m}$中重构一个未知的目标信号或图像$x \in \R^{n}$，其中$A \in \R^{m \times n}$是测量矩阵，$\mathbf{e} \in \R^{m}$表示随机噪声.
+由于测量的数量远远小于信号的环境维数，即$m \ll n$，因此上述逆问题是不适定的。另一种解决方法是获得$\hat{x}$的估计值作为约束优化问题的解:
+\begin{equation}
+\begin{aligned}
+\hat{x} &= \arg\min~\ell(y; Ax),\\
+&\text{s.t.}~~~x \in \mathcal{S},
+\label{eqn:sc}
+\end{aligned}   
+\end{equation}
+其中 $\ell$ 是损失函数 $\mathcal{S} \subseteq \mathcal{R}^n$ 作为 \emph{一个先验}. 
+为了缓解~\eqref{eqn:sc}逆向问题的病态性质，使$x^*$的精确恢复成为可能，通常做以下假设，例如信号$x^* \in \mathcal{S}$是充分稀疏的，测量矩阵$A$满足一定的代数条件, 比如限制等距特性 (RSP)~\cite{candes2006compressive} 或者限制特征值条件 (REC)~\cite{donoho2006compressed}.
+
+将GAN逆向应用于压缩感知是对信号进行估计 $\hat{x}=G(\hat{\z})$, 其中 $\hat{\z}$ 是通过最小化非凸代价函数得到的
+\begin{equation}
+\label{eqn:compressive}
+f(\z)=\|\y-AG(\z)\|_{2}^{2}. 
+\end{equation}
+Bora~\etal~\cite{bora2017compressed} 提出用反向传播和基于标准梯度的优化求解~\eqref{eqn:compressive}.
+Hussein~\etal~\cite{hussein2019image} 通过在测试时使用内部学习使生成器的图像自适应(IA)来处理生成器有限的表示能力。不是将潜在信号$x$恢复为$\hat{x}=G(\hat{\z})$，其中$G(\cdot)$是预训练的生成器，而是通过同时优化$\z$和生成器的参数$\theta$,来最小化代价函数
+\begin{equation}
+f(\theta, \z)=\|y-AG_{\theta}(\z)\|_{2}^{2}.
+\end{equation}
+在~\cite{shah2018solving}, Shah~\etal~给出一个基于投影梯度下降 (PGD)的解~\eqref{eqn:compressive}.
+该方法的第一步是在第t词迭代更新梯度下降来得到${w_t}$: ${w_t} \leftarrow x_t + \eta A^{\top}(y-Ax_t)$,其中$\eta$表示学习率;第二步是用$G$来找到匹配当前估计${w_t}$的最佳图像,其中由投影运算$\mathcal{P}_G$: $\mathcal{P}_G({w_t}) = G(\underset{\z}{\arg\min}\|{w_t} - G(\z)\|)$定义当前估计${w_t}$.
+基于~\cite{shah2018solving}, Raj~\etal~\cite{raj2019gan} 用基于学习的方法替换内部循环中的迭代方案，因为它通常性能更好，不会陷入局部最优.
+
+\subsection{其他任务}
+\subsubsection{交互式生成}
+\label{sec:interactive}
+
+GAN逆向方法可以应用于交互生成，比如从用户绘制的笔画开始，生成最能满足用户约束的自然图像. 
+如图~\ref{fig:interactive}, Zhu~\etal~\cite{zhu2016generative} 展示了用户可以使用笔刷工具从零开始生成图像，然后继续添加更多的涂鸦来细化结果.
+Bau~\etal~\cite{bau2019ganpaint} 开发了一个工具 (See https://ganpaint.io/demo/)生成一个特定类别的自然图像，例如，教堂或厨房，并允许修改画笔绘制语义上有意义的单位，如树木或圆顶.
+Abdal~\etal~\cite{abdal2020image2stylegan2} 逆向StyleGAN以根据用户涂鸦执行语义局部编辑. 
+通过这种方法，简单的涂鸦可以通过嵌入到StyleGAN的特定层转换成照片逼真的编辑.
+该应用程序有助于现有的交互式图像处理任务，如草图到图像生成~\cite{xia2019sketch,ghosh2019isketchnfill,chenDeepFaceDrawing2020} 和基于草图的图像检索~\cite{eitz2010sketch,dey2019doodle}, 这通常需要密集标记的数据集.
+
+\figinteractive
+
+\subsubsection{语义扩散}
+\label{sec:diffusion}
+语义图像扩散是一种图像编辑任务，它将目标人脸插入到语境中，使其兼容,如图~\ref{fig:diffusion}. 
+它可以看作是图像协调(image harmonization)的一种变体 ~\cite{cohen2006color,huang2018multimodal,tsai2017deep}.
+Zhu~\etal~\cite{zhu2020indomain} 在保留目标图像特征的前提下，利用他们的域内逆向方法进行语义扩散 (比如, 面部一致性) 同时适应上下文信息.
+另一方面，Xu~\etal~\cite{xu2020ghfeat}将一些补丁(例如，床和窗户)复制到卧室图像上，并将缝合后的图像送入提出的编码器进行特征提取. 
+提取的特征然后通过图像协调的生成器进行可视化.
+
+\subsubsection{类别迁移}
+\label{sec:category}
+在小节~\ref{sec:restoration}, 我们阐述了Pan~\etal 提出的DGP~\cite{pan2020exploiting}, 可用于恢复不同降级的图像.
+他们的方法也可以通过在重建过程中调整类的条件来转移给定图像的对象类别. 
+The lower right corner of  Figure~\ref{fig:application} 展示了一个例子，在不改变姿势、形状或背景的情况下，将狗转移到其他各种类别.
+
+\subsubsection{对抗防御}
+\label{sec:defense}
+对抗攻击方法~\cite{fan2020sparse,chen2020boosting,wu2020sapf,baluja2017adversarial} 旨在添加一定的扰动$\Delta x$到目标图像$x$来愚弄CNN分类器. 
+与此相反, 对抗防御~\cite{samangouei2018defense,dhillon2018stochastic} 目的是防止模型被攻击者愚弄.
+如果考虑对抗性攻击的退化变换为$\phi(x)=x+\Delta x$，其中$\Delta x$是攻击者产生的扰动，我们可以使用第~\ref{sec:restoration}节中所示的逆向方法进行对抗性防御.
+比如, DGP~\cite{pan2020exploiting} 直接重建对抗性图像$\hat{x}$，当MSE损失达到一定阈值时停止重建.
+
+\figdiffusion

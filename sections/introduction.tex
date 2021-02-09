@@ -1,0 +1,23 @@
+\section{Introduction}
+\label{sec:introduction}
+\IEEEPARstart{}{生成对抗网络} (GAN)框架是一种深度学习架构，可以估计数据点是如何在概率框架中生成的~\cite{goodfellow2014generative,goodfellow2016deep}.
+它由两个相互作用的神经网络组成: 通过对抗的过程共同训练的生成器 $G$ 和判别器$D$。
+$G$的目标是合成与真实数据相思的假数据,$D$的目标是分辨真实和虚假的数据.
+通过一个对抗性的训练过程，生成器$G$可以生成与真实数据分布匹配的假数据。
+近年来，GANs已被应用于许多任务中
+包括图像转换~\cite{mao2019mode,lee2018drit,huang2018munit}, 图像处理~\cite{wang2018high,xia2020gaze,li2020manigan} 以及图像修复~\cite{zhang2017beyond,tsai2017deep,xu2017text,ma2017learning,li2018flow}.
+
+大量的GAN模型, 如 PGGAN~\cite{karras2017progressive}, BigGAN~\cite{brock2018large} 和StyleGAN ~\cite{karras2019style,karras2020analyzing}, 可以从随机噪声输入中合成高质量和多样性的图像. 
+最近的研究表明，GAN能有效地在中间特征~\cite{bau2019semantic} 和隐空间中~\cite{goetschalckx2019ganalyze,jahanian2020steerability, shen2020interpreting}编码丰富的语义信息,作为图像生成的结果.
+这些方法可以通过改变潜在代码来合成具有不同属性的图像，如老化、表情、光照方向等。
+然而，由于GAN缺乏推理功能和编码器，这种对隐空间的操作只适用于GAN生成的图像，并不适用于任何给定的真实图像。
+
+\figoverview
+
+相比之下，GAN逆向的目标是将给定的图像逆向回预先训练好的GAN模型的隐空间。然后，图像就可以通过生成器从被逆向的编码中如实地重建出来。
+由于GAN逆向在连接真实和虚假图像域方面起着至关重要的作用，因此取得了显著的进展~\cite{zhu2016generative,abdal2019image2stylegan,abdal2020image2stylegan2,bau2019seeing,karras2020analyzing,huh2020transforming,pan2020exploiting,jahanian2020steerability,shen2020interpreting}. 
+GAN逆向使得在现有训练过的GAN的隐空间中发现的可控方向适用于真实的图像编辑，而不需要特别的监督或昂贵的优化。
+如图~\ref{fig:overview}, 将真实图像逆向到隐空间后，我们可以沿着一个特定的方向改变其编码，编辑图像的相应属性。
+GAN逆向作为一个将生成对抗网络与可解释机器学习技术相结合的快速发展的领域，不仅提供了一种灵活的替代图像编辑框架，而且有助于揭示深度生成模型的内在机制。
+
+在这篇文章中，我们提出了一个全面的调查GAN逆向方法，重点是算法和应用。据我们所知，这项工作是对快速增长的GAN逆向的第一次调查，并有以下贡献。首先，我们对在GAN逆向的所有方面的层次和结构,提供了一个全面和系统的回顾，以及深刻的分析。其次，我们对GAN逆向方法的性质和性能进行了比较总结。第三，我们讨论了挑战和有待解决的问题，并确定了未来研究的趋势。

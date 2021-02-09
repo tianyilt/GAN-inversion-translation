@@ -1,0 +1,63 @@
+\section{有关问题}
+\label{sec:related}
+
+\subsection{深度生成模型}
+\label{sec:dgm}
+
+除了GANs，许多生成模型已经被开发，包括深度玻尔兹曼机器 (DBMs)~\cite{salakhutdinov2009deep,salakhutdinov2010efficient,montavon2012deep,srivastava2012multimodal}, 变分自编码器 (VAEs)~\cite{kingma2013auto,higgins2017betavae}, 深度自回归模型 (DARs)~\cite{mathieu2015masked,vaswani2017attention,oord2016pixel,oord2016wavenet,salimans2017pixelcnn++}, 以及规格化流模型 (NFMs)~\cite{dinh2016density,dinh2014nice,kingma2018glow,lugmayr2020srflow}.
+DBM 是一个带有有多层隐藏随机变量的二元马尔可夫随机场~(MRF). 
+DBMs可以通过首先对有限的、有标记的数据进行训练，然后对大规模的无标记数据集进行微调来学习复杂和抽象的表示. 
+GANs, VAEs, DARs 和 NFMs是使用低维隐变量$\mathbf{z}$表示高维数据$x$的隐变量模型. 
+不同于以前的自动编码器模型~\cite{rifai2011contractive,vincent2008extracting} 将输入$x$映射为一个固定的向量, VAEs~\cite{kingma2013auto} 将$x$映射到一个隐向量$\mathbf{z}$，其先验分布为$p_\theta(\mathbf{z})$，参数化为$\theta$。. 
+最优参数 $\theta^{*}$ 为$\theta^{*} = \arg\max_\theta \sum_{i=1}^n \log p_\theta(x^{(i)})$, 这个问题通过以下方法解决:定义编码器求解估计的后验分布$q_\phi (\mathbf{z}\vert x)$ ();定义解码器 $p_\theta(x\vert \mathbf{z})$求解难以控制的真实后验,然后通过最大化证据下界 (ELBO)来优化kullback - leble (KL)散度,  关于 $\phi$的$D_\text{KL}( q_\phi(\mathbf{z}\vert x) \| p_\theta(\mathbf{z}\vert x) )$.(PS:这话讲的完全不是人话,其实VAE就是自编码的同时,用KL散度来保证隐向量的分布逼近高斯分布,真搞不懂定义解码器求解后验分布和VAE的特点有什么关系)
+DARs~\cite{mathieu2015masked,vaswani2017attention} 是可以给出预测概率分布$P(x_{t+1} | x_1, x_2, \cdots, x_t)$的前馈模型. DARs 在连续和离散信号上都能灵活地起作用, 包括音频 (WaveNet~\cite{oord2016wavenet}), 图像 (PixelCNN++~\cite{salimans2017pixelcnn++}) 和文本 (Transformer~\cite{vaswani2017attention}).
+与GANs和VAEs不同，基于流的深度生成模型通过一系列可逆变换明确学习输入$x$的概率密度函数: $x = \mathbf{z}_K = f_K \circ f_{K-1} \circ \dots \circ f_1 (\mathbf{z}_0)$.
+随机变量$\mathbf{z}_i = f_i(\mathbf{z}_{i-1})$所遍历的路径称为流，由连续分布$\pi_i$形成的完整链称为规范化流.一个变换函数 $f_i$ 应该满足两个需求:高效的求逆和易于处理的雅可比行列式计算.
+进一步, 如果$f_i$被框定为一个自回归模型, 即向量变量的每个维数都以先前的维数为条件如 ARMA~\cite{box2011time} 和 ARCH~\cite{engle1982autoregressive}, 这是一个自回归流. 经典的自回归流模型包括 MAF~\cite{papamakarios2017masked} 和 IAF~\cite{kingma2016improved}.
+
+\subsection{对抗特征学习}
+\label{sec:afl}
+类似于GAN逆向，对抗性特征学习~(AFL, 又名 BiGAN)~\cite{donahue2016adversarial,li2018domain,xie2017controllable}  或 Adversarially Learned Inference~(ALI)~\cite{dumoulin2016adversarially, du2018multi, belghazi2018hierarchical} 也旨在学习GAN模型的逆映射\footnote{ALI~\cite{dumoulin2016adversarially} 和 AFL~\cite{donahue2016adversarial} 共享相同的想法，但由两个团队独立开发.}. 
+
+与GAN逆向(解释训练过的GAN模型的隐空间)不同，AFL或ALI用对抗的方法\emph{共同地}训练了一个生成网络和一个推理网络.这种深度生成模型也构成了一种将高效推理与GANs框架相结合的新方法。与其他深度生成模型不同 (比如变分自编码器 (VAEs)~\cite{doersch2016vae} 或者 Generative Latent Optimization (GLO)~\cite{bojanowski2017optimizing}), AFL或ALI的目标函数在重建过程中没有明确的约束. 
+与完美的像素重建不同，它们倾向于产生具有灵活变化的可信重建，尽管代价是在捕捉精确的物体位置、颜色、风格甚至身份方面犯一些错误。这种新的无监督特征学习框架由于能够学习不变特征，在跨域检索、检测和识别等领域得到了广泛的应用.
+比如, Li~\etal~\cite{li2018domain} 使用对抗自编码器~\cite{makhzani2015aae} 来学习域泛化的不变特征. 
+Xie~\etal~\cite{xie2017controllable} 提出一个框架并提供理论分析来学习数据的不变表示，它可以应用于多种应用，包括文本生成和图像分类.
+Li~\etal~\cite{li2017alice} 描述ALI的不可识别性问题，并为最近提出的GAN模型从联合分布匹配的角度提供一个统一的框架，包括 CGAN~\cite{mirza2014conditional}, ALI~\cite{dumoulin2016adversarially}, AFL~\cite{donahue2016adversarial} 以及  CycleGAN~\cite{zhu2017toward}.
+Pang~\etal~\cite{pang2018reid} 引入一个草图再识别问题，提出一种跨域对抗特征学习方法来解决这个问题，该方法可以共同学习身份特征和域不变特征.
+Kim~\etal~\cite{kim2019pedestrain} 提出一种新的跨光谱行人检测的无监督学习框架。他们应用对抗性学习方案的中间特征的颜色和热图像的基础上的假设，在同一个特征空间里面共享两个领域的图像特征.
+Donahue~\etal~\cite{donahue2019large}采用BigGAN模型的生成器和鉴别器架构，提出了BigGAN(带BigGAN generator的BigGAN)无条件生成图像的方法，表明生成模型和推理模型是相互受益的.
+
+\subsection{深度特征分解}
+与GAN逆向类似，深度特征分解(deep feature factorization, DFF)~\cite{collins2018deep}也能够在单个图像和跨图像集定位语义概念。DFF是将非负矩阵分解(non-negative matrix factorization, NMF)~\cite{lee2001algorithms,lin2007projected} 应用于预训练神经网络的ReLU特征激活. 
+NMF以前已经被证明是一种有用的多元数据分解。它可以理解为因式分解非负数据矩阵，受不同的约束，如主成分分析(PCA)或矢量量化(VQ).
+PCA强制一个弱的正交性约束，导致分布式表示，使用取消来捕获全局可变性~\cite{wold1987principal,turk1991eigenfaces}, 而VQ使用了一个强大的赢家通吃的约束，导致数据聚类为互斥原型~\cite{gersho2012vector}. 
+相比之下，NMF特性更容易解释。以人脸识别为例，PCA学习了类似于整张人脸的扭曲版本的特征人脸;VQ学习整体原型，每一个都是一张完整的脸;NMF学习对应于不同面部细节的局部特征表示.
+许多现代神经网络因为它具有良好的训练性能使用矫正线性激活函数 (ReLU)~\cite{nair2010rectified}. 
+NMF自然适用于这种情况，因为ReLU会导致非负激活.
+DFF 最先由Collins~\etal~\cite{collins2018deep} 提出用于概念发现，并在共同分割和共同定位任务上产生最先进的结果. 作者声称返回的$k$因子，其中$k$是近似的预定义秩，对应于相干对象或对象部分。他们进一步提出利用DFF实现基于内容的图像检索和定位~\cite{collins2019dff}.
+也提出了类似的想法来分析生成模型的激活. Collins~\etal~\cite{collins2020uncovering}应用球形$k$-均值聚类~\cite{buchta2012spherical} 到激活向量上,这在生成模型的给定层上构造激活张量.
+尽管 Ramesh~\etal~\cite{ramesh2018spectral} 和 Voynov~\etal~\cite{voynov2020latent} 使用雅可比分解来研究预训练的GAN模型的隐空间 , Härkönen~\etal~\cite{eric2020GANSpace} 使用 PCA, 这两种方法似乎都与前面提到的方法相似~\cite{collins2018deep,collins2019dff,collins2020uncovering}, 由于DDF家族没有迭代或优化过程，我们仍然没有将其归类为GAN逆向方法.
+
+\subsection{深度图像先验}
+图像先验描述了自然图像的统计。它已被广泛应用于计算机视觉任务中, 包括 
+MRF~\cite{roth2005fields,zhu1997prior,geman1984stochastic}, 暗通道先验 \cite{he2010single} 和总变差正则化 \cite{rudin1992nonlinear}, 通过吉布斯分布建立相邻像素间的相关模型.
+也有其他的深度先验开发低级恢复任务，如深度降噪先验~\cite{zhang2017learning, bigdeli2017deep} 和 TNRD~\cite{chen2016trainable}.
+这些图像先验捕获低级统计信息，通常用于去噪、修复和分割.
+最近，深度图像先验 (DIP)~\cite{ulyanov2018deep} 提出了由随机初始化的神经网络结构隐式捕获的图像统计量也可用于图像恢复或转换之前.
+研究表明，DIP算法能较好地获取大量的低层次图像统计信息，并能在去噪、超分辨率和图像修复等标准反问题中取得较好的效果.
+SinGAN~\cite{shaham2019singan}在单个图像的小块上以不同尺度对随机初始化的GAN进行微调，实现各种图像处理或恢复效果.
+然而, SinGAN 要求目标图像具有丰富的重复图案，偏向于捕捉低级和中级纹理.
+尽管DIP和SinGAN在某些情况下表现出色，但由于它们是从零开始训练的，对输入图像以外的图像统计数据的访问有限，这限制了它们在图像着色等任务中的适用性.
+一些其他研究~\cite{ho2020neural,chen2020dip} 寻找能够捕捉更强的图像先验的神经结构，而不是使用手工设计的结构. 特别的,
+Ho~\etal~\cite{ho2020neural} 使用进化搜索和DIP网络的元参数自动优化编码器-解码器结构，该网络在正规化图像恢复之前充当特定内容的先验.
+Chen~\etal~\cite{chen2020dip} 利用递归神经网络控制器的强化学习来搜索改进的网络结构.
+
+前面提到的图像先验方法从零开始训练它们的网络。
+还有一些尝试使用预先训练的生成模型作为图像统计的来源~\cite{bau2019semantic,hussein2019image}.
+比如, 
+Lin~\etal~\cite{Lin2020LaDDer} 提出了 LaDDer, 一种在VAE框架下精确建模先验分布的方法.
+Bau~\etal~\cite{bau2019semantic}采用GAN处理图像的部分区域，但该方法不适用于彩色等恢复任务.
+Another 的工作~\cite{hussein2019image} 也可预先使用GAN进行恢复，但仅适用于压缩感知和人脸超分辨.
+一个同时发生的工作multi-code GAN Prior (mGANPrior)~\cite{gu2020image} 并通过解决GAN逆向问题进行图像处理。他们研究和利用在GAN中捕获的先验物质如何对多种修复和操作任务起作用. 
+GAN逆向和GAN先验之间的显著差异是通过使用预先训练的模型或将图像逆向到隐向量来确定的.

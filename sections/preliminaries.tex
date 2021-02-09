@@ -1,0 +1,184 @@
+\section{Preliminaries}
+\label{sec:overview}
+
+\subsection{翻译的术语表}
+\label{sec:term}
+inversion 逆向;
+entangle 耦合的;
+disentangle 解耦的;
+transform 变换;
+reconstruction 重建或者重构;
+latent code 隐编码或者隐向量;
+latent space 隐空间;
+style 风格;
+
+\subsection{问题定义}
+\label{sec:definition}
+无条件GAN的生成器学习映射 $G: \mathcal{Z} \to \mathcal{X}$. 
+当 $\z_1, \z_2 \in \mathcal{Z}$ 在$\mathcal{Z}$ 空间中是接近的, 相应的图片$x_1, x_2 \in \mathcal{X}$ 在视觉上接近. 
+生成器的逆向是将数据 $x$ 逆映射到隐表示$\z^*$, 或者等价地, 找到一个图像${x^*}$ ,该图像可以被一个训练好的生成器$G$完全合成,并且与真实图片$x$接近.
+把逆变换的信号定义为 $x \in \R^{n}$, 训练好的生成器定义为$G: \R^{n_{0}} \to \R^{n}$, 隐向量定义为$\z \in \R^{n_{0}}$, 我们研究以下逆向问题:
+\begin{equation}
+\z^*=\underset{\z}{\arg \min } \ \ell(G(\z), x),
+\label{eqn:def}
+\end{equation}
+其中 $\ell(\cdot)$ 是一个在图像或特征空间中的距离度量, 假设 $G$ 是一个前馈神经网络. 
+一般的, $\ell(\cdot)$ 基于$\ell_1$, $\ell_2$, 感知度量 ~\cite{johnson2016perceptual}, 和 LPIPS~\cite{zhang2018unreasonable} 度量.
+由于$G(\z)$的非凸性，这通常是一个非凸问题，而GAN逆向方法的重点是重建图像内容。
+
+\subsection{预训练的GAN模型和数据集}
+\label{sec:model_data}
+深度生成模型，如GAN ~\cite{goodfellow2014generative} 已被用于模拟自然图像分布和合成照片真实感图像。 gan的最新进展，如DCGAN ~\cite{radford2016dcgan}, WGAN~\cite{gulrajani2017improved}, PGGAN~\cite{karras2017progressive}, BigGAN~\cite{brock2018large}, StyleGAN~\cite{karras2019style} 以及 StyleGAN2~\cite{karras2020analyzing} 开发了更好的架构、损失和训练方法. 这些模型是在不同的数据集上训练的，包括人脸 (CelebA-HQ~\cite{karras2017progressive}, FFHQ~\cite{karras2019style,karras2020analyzing}, AnimeFaces~\cite{jin2017towards} 和 AnimalFace~\cite{liu2019funit}), 场景 (LSUN~\cite{yu2015lsun}), 和目标 (LSUN~\cite{yu2015lsun} 以及imagenet~\cite{russakovsky2015imagenet}).
+
+\subsubsection{GAN 模型} 
+\label{sec:gan models}
+
+\noindent\textbf{DCGAN}~\cite{radford2016dcgan} 在鉴别器中使用卷积，在生成器中使用反卷积. \par
+
+\vspace{1mm}
+\noindent\textbf{WGAN}~\cite{gulrajani2017improved} 最小化生成的数据分布和真实数据分布之间的Wasserstein距离，这提供了更多的模型稳定性，使训练过程更容易.\par
+
+\vspace{1mm}
+\noindent\textbf{PGGAN}~\cite{karras2017progressive}, 也被称为ProGAN或Progressive GAN，在训练过程中使用一种渐进式策略. 
+关键的思想是，从生成器和鉴别器的低分辨率开始，然后添加新的层，随着训练的进行，这些层对越来越细粒度的细节进行建模. 
+这提高了训练速度和稳定性，从而促进图像合成在更高的分辨率, \eg, $1024 \times 1024$ 像素的CelebA 图像. \par
+
+\vspace{1mm}
+\noindent\textbf{BigGAN}~\cite{brock2018large} 生成高分辨率和高质量的图像，通过修改放大、架构变化和正交正则化来提高大规模GAN的可伸缩性、鲁棒性和稳定性.\par
+
+\vspace{1mm}
+\noindent\textbf{StyleGAN}~\cite{karras2019style} 隐式地学习分层潜在风格的图像生成。. 
+这个模型操纵每个通道的平均值和方差来有效控制图像的风格~\cite{huang2017adain} .
+StyleGAN生成器将风格向量(由映射网络定义)和随机变化(由噪声层提供)作为输入，而不是来自隐空间的样本，来生成合成图像. 
+这提供了在不同细节级别上控制生成图像的样式.
+StyleGAN2 模型~\cite{karras2020analyzing} 通过提出权值解调、路径长度正则化、重新设计生成器和去除渐进增长，进一步改善图像质量. 
+基于StyleGAN的架构已经应用于许多应用场景~\cite{gabbay2019style,zhu2020sean,zhu2020semantically}.\par
+
+\subsubsection{数据集}
+\label{sec:datasets}
+
+\vspace{1mm}
+\noindent\textbf{ImageNet}~\cite{russakovsky2015imagenet} 是一个大规模的手工标注的数据集，用于视觉对象识别研究，包含超过1400万幅图像，超过20000个类别.\par
+
+\vspace{1mm}
+\noindent\textbf{CelebA}~\cite{liu2015faceattributes} 是一个大型的人脸属性数据集，由200K张名人图像组成，每张图像有40个属性标注。CelebA，以及后来的CelebA-HQ~\cite{karras2017progressive}, CelebAMask-HQ~\cite{CelebAMask-HQ}, 以及 CelebA-Spoof~\cite{CelebA-Spoof}, 广泛应用于人脸图像的生成和处理.\par
+
+\vspace{1mm}
+\noindent\textbf{Flickr-Faces-HQ} (FFHQ)~\cite{karras2019style,karras2020analyzing} 是一个从Flickr抓取的高质量人脸图像数据集，它包含70,000张$1024 \times 1024$像素的高质量人脸图像，在年龄、种族和图像背景方面有相当大的差异。\par
+
+\vspace{1mm}
+\noindent\textbf{LSUN}~\cite{yu2015lsun} 包含10个场景类别(例如，卧室，教堂，或塔)和20个对象类别的大约100万个标签图像 (例如，鸟、猫或公共汽车).
+教堂和卧室场景图像、汽车和鸟类物体图像经常被用在GAN逆向问题研究中.\par
+
+此外，一些GAN逆向研究在他们的实验中也使用了其他数据集~\cite{lecun1998mnist,xiao2017fashion,krizhevsky2009learning,chen2014cross,yu2017jittor,xia2020tedigan}, 比如 \textbf{DeepFashion}~\cite{liu2016fashion, liu2016deepfashion, Ge2019DeepFashion2}, \textbf{AnimeFaces}~\cite{jin2017towards}, 以及 \textbf{StreetScapes}~\cite{naik2014streetscore}.
+
+\subsection{评价指标}
+\label{sec:metrics}
+
+基于GANs的图像合成通常在摄影真实感、多样性、可解释性和可解耦方面进行评价。通常采用结构相似度(PSNR和SSIM)和感知质量(IQA方法)来衡量照片真实性。多样性对GAN的生成方法尤为重要;最广泛使用的度量标准是IS、FID和LPIPS;最近的研究也使用SWD。可解释性和可解耦性是GAN逆向任务中最相关的指标。
+在文献中，有一些方法~\cite{nitzan2020harness} 使用余弦距离或欧氏距离来评估输入和输出之间的不同属性, 而其他人~\cite{voynov2020latent} 使用分类准确性进行评估.
+
+\subsubsection{图象质量评价}
+\label{sec:iqa}
+
+\noindent\textbf{Mean Opinion Score} (MOS) 以及 \textbf{Difference Mean Opinion Score} (DMOS) 已经被用于主观的图像质量评估，即要求人类评分者给图像的感知质量打分.
+通常，分数从 $1$ (不好) 到 $5$ (好), 最后的MOS值是所有评分的算术平均值.
+然而，这个指标也有缺点, 比如, 非线性的感知比例、偏差和方差。
+
+
+
+\vspace{1mm}
+\noindent\textbf{Peak Signal-to-Noise Ratio} (PSNR) 是衡量重建质量最广泛使用的标准之一.
+真实图像 $I$ 与重建图像 $\hat{I}$ 之间的PSNR 定义为图像最概然像素值(表示为$L$)和均方误差图像间 (MSE) :
+\begin{align}
+{\rm PSNR} &= 10 \cdot \log_{10} (\frac {L^2} {\frac{1}{N} \sum_{i=1}^{N} (I(i) - \hat{I}(i))^2}),
+\label{eqn:mse}
+\end{align}
+如果使用$n$比特的线性脉冲编码调制表示, $L$ 等于$2^{n}-1$, 比如, 一般情况下$255$使用8位比特表示,即$n=8,L=255$.
+
+\vspace{1mm}
+\noindent\textbf{Structural Similarity} (SSIM)~\cite{TIP2004ImageWang} 基于亮度、对比度和结构方面的独立性比较来衡量图像之间的结构相似性.
+带有 $N$ 个像素的两个图片$I$ 和 $\hat{I}$ 的SSIM为:
+\begin{equation}
+\label{eqn:ssim}
+{\rm SSIM}(I, \hat{I}) = [\mathcal{C}_l(I, \hat{I})]^\alpha
+                         [\mathcal{C}_c(I, \hat{I})]^\beta
+                         [\mathcal{C}_s(I, \hat{I})]^\gamma,
+\end{equation}
+其中 $\alpha$, $\beta$, $\gamma$是调整相对重要性的控制参数.
+这些条款的细节可以参考~\cite{TIP2004ImageWang}.
+
+
+
+
+
+
+\subsubsection{基于学习的感知质量}
+\noindent\textbf{Inception Score} (IS)~\cite{salimans2016improved} 是一种广泛使用的度量标准，用于衡量由GAN模型生成的图像的质量和多样性。当给定生成的图片时,它计算在ImageNet~\cite{deng2009imagenet}上预训练的Inception-v3网络的统计信息~\cite{szegedy2016rethinking}:
+\begin{equation}
+\mathrm{IS} = \exp{\big (\E_{x \sim p_g} D_{KL} (p(y|x) \;\|\; p(y))\big)},
+\end{equation}
+其中 $x \sim p_g$ 表示$x$ 是一张采样自$p_g$的图片, $D_{KL}(p\|q)$ 是 分布$p$ 和 $q$之间的KL散度, $p(y|x)$ 是条件分布, $p(y) = \int_x p(y|x)p_g(x)$ 是边缘分布.\par
+
+\vspace{1mm}
+\noindent\textbf{Fr$\acute{e}$chet Inception Distance}~\cite{heusel2017gans} (FID) 是用在两个多元高斯分布之间的 Fr$\acute{e}$chet 距离定义的:
+\begin{equation}
+\mathrm{FID}=\|\mu_{r}-\mu_{g}\|^{2}+\operatorname{Tr}(\Sigma_{r}+\Sigma_{g}-2(\Sigma_{r} \Sigma_{g})^{\frac{1}{2}}),
+\end{equation}
+其中 $X_{r} \sim \mathcal{N}(\mu_{r}, \Sigma_{r})$ 和 $X_{g} \sim \mathcal{N}(\mu_{g}, \Sigma_{g})$ 分别为真实样本和生成样本经过Inception-v3的pool3层的2048维激活向量~\cite{szegedy2016rethinking}. 
+最低的FID表示最多的感知结果.\par
+
+\vspace{1mm}
+\noindent\textbf{Fr$\acute{e}$chet Segmentation Distance} (FSD)~\cite{bau2019seeing}和FID度量的可解释:
+\begin{equation}
+\mathrm{FSD} = \|\mu_{g}-\mu_{t}\|^{2}+\operatorname{Tr}(\Sigma_{g}+\Sigma_{t}-2(\Sigma_{g} \Sigma_{t})^{\frac{1}{2}}),
+\end{equation}
+其中 $\mu_{t}$ 是训练图像样本上每个对象类的平均像素数,  $\Sigma_{t}$ 是协方差.\par
+
+\vspace{1mm}
+\noindent\textbf{Sliced Wasserstein Discrepancy} (SWD)~\cite{rabin2011wasserstein} 旨在捕获任务特定分类器输出之间的不相似性，可以通过计算投影点云的一维Wasserstein 距离来获得:
+\begin{equation}
+\tilde{W}(X, Y)^{2}=\int_{\theta \in \Omega} W\left(X_{\theta}, Y_{\theta}\right)^{2} \mathrm{~d} \theta
+\end{equation}
+其中 $X_{\theta}=\left\{\left\langle X_{i}, \theta\right\rangle\right\}_{i \in I} \subset \R$ 以及$\Omega=\left\{\theta \in \R^{d} \backslash\|\theta\|=1\right\}$ 是单位球. 
+它为检测远离源支持的目标样本提供了有几何意义的指导，并以端到端可训练的方式实现有效的分布对齐.\par
+
+\vspace{1mm}
+\noindent\textbf{Learned Perceptual Image Patch Similarity} (LPIPS)~\cite{zhang2018unreasonable} 可以测量图像的感知质量，同时减少人工干预.
+在给定不同网络的卷积层数的情况下，利用信道维数的余弦距离和空间维数的平均值，在两个patch之间进行计算.
+为了得到网络$\mathcal{F}$参考点和扭曲点之间的距离 ${x,x_0}$ ,它首先计算层$l$的深度嵌入 , 记为 $\hat{y}^l, \hat{y}_0^l \in \R^{H_l\times W_l\times C_l}$, 正则化在通道维度中的激活, 按矢量$w^l \in \R^{C_l}$缩放每个通道并计算$\ell_2$ 距离(使用$w_l=1, \forall l$，相当于计算余弦距离):
+\begin{equation}
+d(x,x_0) = \sum_l \dfrac{1}{H_l W_l} \sum_{h,w} || w_l \odot ( \hat{y}_{hw}^l - \hat{y}_{0hw}^l ) ||_2^2.
+\label{eqn:dist}
+\end{equation}\par
+
+\vspace{1mm}
+\noindent\textbf{Perceptual Path Length} (PPL)~\cite{karras2019style} 利用VGG16~\cite{simonyan2014very}嵌入，测量两个输入之间插值的差异，通过移动后的图像与合成图像之间的两两图像距离来计算.
+具体来说，将一个隐空间插值路径细分为线段，这条线段的感知总长度可以定义为每个线段的感知差的和.
+隐空间 $\mathcal{Z}$中的PPL 为 
+\begin{equation}
+l_{\mathcal{Z}} = \E\Big[{\displaystyle\frac{1}{\epsilon^2}}d\big(G(\mathrm{slerp}({\z}_1,{\z}_2;\,t)), G(\mathrm{slerp}({\z}_1,{\z}_2;\,t+\epsilon))\big)\Big],
+\end{equation}
+其中 \mbox{${\z}_1,\z_2\sim P(\z),t\sim U(0,1)$}, $\epsilon$是一个小的扰动, $G$ 生成器 (比如, stylegan的生成器$g \circ f$ ),  $d(\cdot,\cdot)$ 评估产生的图像之间的感知距离. 
+ $\mathcal{W}$中的PPL 以类似的方式定义:
+\begin{equation}
+\begin{aligned}
+l_{\mathcal{Z}} = \E\Big[{\displaystyle\frac{1}{\epsilon^2}}d\big(&g(\mathrm{lerp}(f(\z_1),f(\z_2);\,t)), \\
+&g(\mathrm{lerp}(f(\z_1),f(\z_2);\,t+\epsilon))\big)\Big].
+\end{aligned}
+\end{equation}
+通常, $\mathcal{Z}$中 $\mathrm{slerp}(\cdot)$ 表示球面插值~\cite{shoemake1985animating}, 这是在归一化输入隐空间中插值最合适的方法~\cite{white2016sampling}.
+ $\mathcal{W}$中用线性插值 $\mathrm{lerp}(\cdot)$, 因为$\mathcal{W}$中的向量没有以任何方式正则化。
+
+\subsubsection{逆向准确率}
+\noindent\textbf{分类精度.}
+Voynov~\etal~\cite{voynov2020latent} 提出 \textbf{Reconstructor Classification Accuracy} (RCA) 通过预测给定图像变换在隐空间中产生的方向来衡量模型的可解释性。
+该方法解决了多类分类问题，RCA值高意味着方向易于区分, 例如,相应的图像变换不会“干涉”或影响变化的不同因素.
+Abdal~\etal~\cite{abdal2020styleflow} 使用 \textbf{Face Identity} 来评价编辑的质量，量化编辑的恒等性. 
+一种人脸分类器模型~\cite{Geitgey2020Fr} 用于获取图像的嵌入，可以进行对比(编辑前后), 例如, $i_1$ 和 $i_2$, 然后计算嵌入之间的欧氏距离和余弦相似度.\par
+
+\vspace{1mm}
+\noindent\textbf{重建距离.}
+Nitzan~\etal~\cite{nitzan2020harness}利用余弦相似度度量来比较表情留存的精度，其计算方法为$I_{attr}$和$I_{out}$~\cite{dlib2009}的二维地标之间的欧氏距离. 而位姿保持计算为$I_{attr}$和$I_{out}$的欧拉角之间的欧氏距离.
+Abdal~\etal~\cite{abdal2020styleflow} 开发了 \textbf{Edit Consistency Score},在使用属性分类器进行分类时，基于编辑的不同排列会导致相同属性的假设，测量编辑图像之间的一致性.
+例如，对表情和姿势进行编辑后得到的姿势属性，与对相同的姿势和灯光进行编辑后得到的姿势属性，期望是相同的, 在 $|\mathcal{A}_p(E_p(E_e(I))-\mathcal{A}_p(E_l(E_p(I))|$分数的约束下, 其中$E_x$表示沿着属性规范$x$进行条件编辑，$\mathcal{A}_p$表示由属性分类器回归的姿态属性向量。
